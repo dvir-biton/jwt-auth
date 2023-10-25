@@ -1,9 +1,14 @@
 package com.fylora
 
 import com.fylora.data.requests.AuthRequest
+import com.fylora.data.response.AuthResponse
 import com.fylora.data.user.User
 import com.fylora.data.user.UserDataSource
 import com.fylora.security.hashing.HashingService
+import com.fylora.security.hashing.SaltedHash
+import com.fylora.security.token.TokenClaim
+import com.fylora.security.token.TokenConfig
+import com.fylora.security.token.TokenService
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -53,6 +58,58 @@ fun Route.signUp(
         }
 
         call.respond(HttpStatusCode.OK)
+    }
+}
+
+fun Route.signIn(
+    userDataSource: UserDataSource,
+    hashingService: HashingService,
+    tokenService: TokenService,
+    tokenConfig: TokenConfig
+) {
+    post("signin") {
+        val request = call.receiveNullable<AuthRequest>() ?: kotlin.run {
+            call.respond(HttpStatusCode.BadRequest)
+            return@post
+        }
+
+        val user = userDataSource.getUserByUsername(request.username)
+        if(user == null) {
+            call.respond(
+                HttpStatusCode.Conflict,
+                "Incorrect username or password"
+            )
+            return@post
+        }
+
+        val isValidPassword = hashingService.verify(
+            value = request.password,
+            saltedHash = SaltedHash(
+                hash = user.password,
+                salt = user.salt
+            )
+        )
+        if(!isValidPassword) {
+            call.respond(
+                HttpStatusCode.Conflict,
+                "Incorrect username or password"
+            )
+            return@post
+        }
+
+        val token = tokenService.generate(
+            config = tokenConfig,
+            TokenClaim(
+                name = "userId",
+                value = user.id.toString()
+            )
+        )
+        call.respond(
+            status = HttpStatusCode.OK,
+            message = AuthResponse(
+                token = token
+            )
+        )
     }
 }
 

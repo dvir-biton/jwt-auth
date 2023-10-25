@@ -11,6 +11,8 @@ import com.fylora.security.token.TokenConfig
 import com.fylora.security.token.TokenService
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -24,10 +26,14 @@ fun Route.signUp(
             call.respond(HttpStatusCode.BadRequest)
             return@post
         }
-        if(
-            request.username.isBlank()
-            || !isStrongPassword(request.password)
-        ) {
+        if(request.username.length < 3) {
+            call.respond(
+                HttpStatusCode.Conflict,
+                message = "The username cannot be less than 3 characters"
+            )
+            return@post
+        }
+        if(!isStrongPassword(request.password)) {
             call.respond(
                 HttpStatusCode.Conflict,
                 message = "The password is not strong enough"
@@ -110,6 +116,24 @@ fun Route.signIn(
                 token = token
             )
         )
+    }
+}
+
+fun Route.authenticate() {
+    authenticate {
+        get("authenticate") {
+            call.respond(HttpStatusCode.OK)
+        }
+    }
+}
+
+fun Route.getUserInfo() {
+    authenticate {
+        get("info") {
+            val principal = call.principal<JWTPrincipal>()
+            val userId = principal?.getClaim("userId", String::class)
+            call.respond(HttpStatusCode.OK, "Your id is $userId")
+        }
     }
 }
 

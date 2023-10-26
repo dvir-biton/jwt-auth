@@ -33,17 +33,17 @@ fun Route.signUp(
             )
             return@post
         }
-        if(!isStrongPassword(request.password)) {
-            call.respond(
-                HttpStatusCode.Conflict,
-                message = "The password is not strong enough"
-            )
-            return@post
-        }
         if(userDataSource.getUserByUsername(request.username) != null) {
             call.respond(
                 HttpStatusCode.Conflict,
                 message = "The username is already taken"
+            )
+            return@post
+        }
+        if(!isStrongPassword(request.password)) {
+            call.respond(
+                HttpStatusCode.Conflict,
+                message = "The password is not strong enough"
             )
             return@post
         }
@@ -152,7 +152,7 @@ fun isStrongPassword(password: String): Boolean {
         it.isLetterOrDigit().not()
     }
 
-    return password.length > minLength
+    return password.length >= minLength
             && hasUpperCase
             && hasLowerCase
             && hasDigit
